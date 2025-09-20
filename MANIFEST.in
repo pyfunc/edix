@@ -1,0 +1,33 @@
+include README.md
+include LICENSE
+include pyproject.toml
+include requirements*.txt
+include .env.example
+include .gitignore
+include .dockerignore
+include docker-compose*.yml
+include Dockerfile
+include docker-entrypoint.sh
+
+# Include frontend build files
+recursive-include edix/static *
+recursive-include edix/templates *
+
+# Include frontend source files for development
+prune frontend_src/node_modules
+prune frontend_src/dist
+prune frontend_src/build
+prune frontend_src/.cache
+
+# Include tests
+global-include *.py
+global-include *.md
+
+# Exclude common files we don't want
+exclude .DS_Store
+exclude .gitignore
+exclude .git/
+
+# Include package data
+graft edix/static
+graft edix/templates

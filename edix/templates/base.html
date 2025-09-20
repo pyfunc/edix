@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Edix - Universal Data Structure Editor{% endblock %}</title>
+  {% block head %}{% endblock %}
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+</head>
+<body>
+  <div id="edix-root">
+    {% block content %}{% endblock %}
+  </div>
+  
+  {% block scripts %}
+    <script>
+      // Configuration object that will be available in the React app
+      window.EdixConfig = {
+        apiUrl: '{{ config.API_PREFIX or "/api" }}',
+        wsUrl: '{{ config.WS_URL or "" }}' || 
+               ((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '{{ config.WS_PREFIX or "/ws" }}'),
+        embedMode: {{ 'true' if request.query_params.get('embed') == 'true' else 'false' }},
+        version: '{{ config.VERSION or "0.1.0" }}',
+        basePath: '{{ request.base_url }}',
+        debug: {{ 'true' if config.DEBUG else 'false' }}
+      };
+    </script>
+    <script src="{{ url_for('static', path='/js/runtime~main.[contenthash].js') }}"></script>
+    <script src="{{ url_for('static', path='/js/vendors~main.[contenthash].js') }}"></script>
+    <script src="{{ url_for('static', path='/js/main.[contenthash].js') }}"></script>
+  {% endblock %}
+</body>
+</html>
