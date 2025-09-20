@@ -41,7 +41,7 @@ class SchemaCreate(SchemaBase, BaseCreateSchema):
         return v
     
     class Config(SchemaBase.Config):
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "person",
                 "description": "A person schema",
@@ -77,7 +77,7 @@ class SchemaUpdate(BaseUpdateSchema):
         return v
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "updated_person",
                 "description": "Updated person schema",
@@ -100,9 +100,7 @@ class SchemaInDB(SchemaBase, BaseInDBSchema):
     owner_id: int
     
     class Config(SchemaBase.Config):
-        fields = {
-            'schema_definition': {'exclude': False}
-        }
+        pass
 
 class SchemaResponse(SchemaInDB, BaseResponseSchema):
     """Schema for API responses."""
@@ -115,7 +113,7 @@ class SchemaValidationError(BaseModel):
     message: str
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "path": "age",
                 "message": "-1 is less than the minimum of 0"
@@ -128,7 +126,7 @@ class SchemaValidationResult(BaseModel):
     errors: List[SchemaValidationError] = []
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "valid": False,
                 "errors": [

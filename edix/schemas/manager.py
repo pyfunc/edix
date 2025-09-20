@@ -13,7 +13,7 @@ import jsonschema
 from jsonschema import Draft7Validator, ValidationError
 from pydantic import BaseModel, ValidationError as PydanticValidationError
 
-from . import Schema, SchemaCreate, SchemaUpdate, SchemaInDB, SchemaResponse
+from . import SchemaBase, SchemaCreate, SchemaUpdate, SchemaInDB, SchemaResponse
 from ..database import DatabaseManager
 from ..models.schema import Schema as DBSchema
 from ..crud import schema_crud

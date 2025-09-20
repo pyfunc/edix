@@ -22,7 +22,7 @@ UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
 # SQLAlchemy base class
 @as_declarative()
 class Base:
-    ""Base class for all SQLAlchemy models."""
+    """Base class for all SQLAlchemy models."""
     
     id: Any
     __name__: str
@@ -39,14 +39,14 @@ class Base:
 
 
 class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
-    ""Base class for CRUD operations on models."""
+    """Base class for CRUD operations on models."""
     
     def __init__(self, model: Type[ModelType]):
-        ""Initialize with the model class."""
+        """Initialize with the model class."""
         self.model = model
     
     async def get(self, db: Session, id: Any) -> Optional[ModelType]:
-        ""Get a single record by ID."""
+        """Get a single record by ID."""
         return db.query(self.model).filter(self.model.id == id).first()
     
     async def get_multi(
@@ -57,7 +57,7 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         limit: int = 100,
         **filters: Any
     ) -> List[ModelType]:
-        ""Get multiple records with optional filtering."""
+        """Get multiple records with optional filtering."""
         query = db.query(self.model)
         
         # Apply filters
@@ -68,7 +68,7 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         return query.offset(skip).limit(limit).all()
     
     async def create(self, db: Session, *, obj_in: CreateSchemaType) -> ModelType:
-        ""Create a new record."""
+        """Create a new record."""
         obj_in_data = obj_in.dict() if hasattr(obj_in, 'dict') else obj_in
         db_obj = self.model(**obj_in_data)
         db.add(db_obj)
@@ -83,7 +83,7 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         db_obj: ModelType, 
         obj_in: UpdateSchemaType
     ) -> ModelType:
-        ""Update an existing record."""
+        """Update an existing record."""
         obj_data = obj_in.dict(exclude_unset=True) if hasattr(obj_in, 'dict') else obj_in
         
         for field, value in obj_data.items():
@@ -96,7 +96,7 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         return db_obj
     
     async def remove(self, db: Session, *, id: Any) -> ModelType:
-        ""Delete a record by ID."""
+        """Delete a record by ID."""
         obj = db.query(self.model).get(id)
         if obj:
             db.delete(obj)
@@ -104,7 +104,7 @@ class BaseCRUD(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         return obj
     
     async def soft_delete(self, db: Session, *, id: Any) -> Optional[ModelType]:
-        ""Soft delete a record by setting deleted_at timestamp."""
+        """Soft delete a record by setting deleted_at timestamp."""
         obj = await self.get(db, id)
         if obj and hasattr(obj, 'deleted_at'):
             obj.deleted_at = datetime.utcnow()

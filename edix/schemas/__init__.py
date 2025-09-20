@@ -19,13 +19,16 @@ from .user import (
     UserLogin, Token, TokenData
 )
 from .schema import (
-    Schema, SchemaCreate, SchemaUpdate, SchemaInDB, SchemaResponse
+    SchemaBase, SchemaCreate, SchemaUpdate, SchemaInDB, SchemaResponse,
+    SchemaValidationError, SchemaValidationResult
 )
 from .structure import (
-    Structure, StructureCreate, StructureUpdate, StructureInDB, StructureResponse
+    StructureBase, StructureCreate, StructureUpdate, StructureInDB, StructureResponse,
+    StructureType, StructureStatus
 )
 from .data_item import (
-    DataItem, DataItemCreate, DataItemUpdate, DataItemInDB, DataItemResponse
+    DataItemBase, DataItemCreate, DataItemUpdate, DataItemInDB, DataItemResponse,
+    BulkDataItemCreate, DataItemSearch, DataItemStatus
 )
 
 # Export SchemaManager
@@ -41,13 +44,16 @@ __all__ = [
     'UserLogin', 'Token', 'TokenData',
     
     # Schema schemas
-    'Schema', 'SchemaCreate', 'SchemaUpdate', 'SchemaInDB', 'SchemaResponse',
+    'SchemaBase', 'SchemaCreate', 'SchemaUpdate', 'SchemaInDB', 'SchemaResponse',
+    'SchemaValidationError', 'SchemaValidationResult',
     
     # Structure schemas
-    'Structure', 'StructureCreate', 'StructureUpdate', 'StructureInDB', 'StructureResponse',
+    'StructureBase', 'StructureCreate', 'StructureUpdate', 'StructureInDB', 'StructureResponse',
+    'StructureType', 'StructureStatus',
     
     # DataItem schemas
-    'DataItem', 'DataItemCreate', 'DataItemUpdate', 'DataItemInDB', 'DataItemResponse',
+    'DataItemBase', 'DataItemCreate', 'DataItemUpdate', 'DataItemInDB', 'DataItemResponse',
+    'BulkDataItemCreate', 'DataItemSearch', 'DataItemStatus',
     
     # Manager
     'SchemaManager',

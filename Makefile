@@ -43,13 +43,10 @@ restart: down up
 
 # Test commands
 test:
-	@echo "🚀 Running all tests (will fail on error)..."
-	@if ! curl -s http://localhost:3004 >/dev/null; then \
-		echo "⚠️  Starting test server..."; \
-		make up; \
-		sleep 10; \
-	fi
-	npx cypress run --headless --browser chrome
+	@echo "🚀 Running backend tests with pytest..."
+	python -m pytest edix/tests/ -v
+	@echo "🚀 Running frontend tests with jest..."
+	cd frontend_src && npm test
 
 test-all:
 	@echo "🏃 Running all tests (continue on error)..."
