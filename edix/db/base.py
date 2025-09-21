@@ -28,6 +28,9 @@ async_session_factory = sessionmaker(
     autoflush=False,
 )
 
+# Alias for compatibility with deps.py
+AsyncSessionLocal = async_session_factory
+
 # Base class for all models
 Base = declarative_base()
 

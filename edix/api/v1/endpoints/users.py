@@ -11,7 +11,7 @@ from ....crud.crud_user import user_crud
 from ....db.deps import get_db
 from ....models.user import User, UserCreate, UserInDB, UserUpdate
 from ....schemas.msg import Msg
-from ....schemas.user import User as UserResponse
+from ....schemas.user import UserResponse
 
 router = APIRouter()
 

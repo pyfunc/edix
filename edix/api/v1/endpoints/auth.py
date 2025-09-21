@@ -4,7 +4,7 @@ Authentication API endpoints.
 from datetime import timedelta
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +17,7 @@ from ....core.security import (
 )
 from ....crud.crud_user import user_crud
 from ....db.deps import get_db
-from ....models.user import User, UserCreate, UserInDB
+from ....models.user import User, UserCreate, UserInDB, UserUpdate
 from ....schemas.msg import Msg
 from ....schemas.token import Token as TokenSchema
 

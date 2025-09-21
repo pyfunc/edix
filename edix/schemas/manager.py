@@ -15,6 +15,7 @@ from pydantic import BaseModel, ValidationError as PydanticValidationError
 
 from . import SchemaBase, SchemaCreate, SchemaUpdate, SchemaInDB, SchemaResponse
 from ..database import DatabaseManager
+from ..db.base import AsyncSessionLocal
 from ..models.schema import Schema as DBSchema
 from ..crud import schema_crud
 
@@ -39,7 +40,7 @@ class SchemaManager:
         
         This method should be called during application startup.
         """
-        async with self.db.Session() as session:
+        async with AsyncSessionLocal() as session:
             db_schemas = await schema_crud.get_multi(session)
             for schema in db_schemas:
                 try:
@@ -76,7 +77,7 @@ class SchemaManager:
             is_public=True
         )
         
-        async with self.db.Session() as session:
+        async with AsyncSessionLocal() as session:
             db_schema = await schema_crud.create(session, obj_in=schema_in)
             
             # Update in-memory cache
@@ -184,7 +185,7 @@ class SchemaManager:
         except Exception as e:
             raise ValueError(f"Invalid JSON schema: {e}")
         
-        async with self.db.Session() as session:
+        async with AsyncSessionLocal() as session:
             # Get the existing schema
             db_schema = await schema_crud.get_by_name(session, name=name)
             if not db_schema:
@@ -219,7 +220,7 @@ class SchemaManager:
         Returns:
             True if the schema was deleted, False if not found
         """
-        async with self.db.Session() as session:
+        async with AsyncSessionLocal() as session:
             db_schema = await schema_crud.get_by_name(session, name=name)
             if not db_schema:
                 return False

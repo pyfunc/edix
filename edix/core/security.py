@@ -4,7 +4,7 @@ Security utilities for password hashing and verification.
 import hashlib
 import secrets
 from datetime import datetime, timedelta
-from typing import Any, Union, Optional
+from typing import Any, Union, Optional, TYPE_CHECKING
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -15,7 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
 from ..db.deps import get_db
-from ..models.user import User
+
+if TYPE_CHECKING:
+    from ..models.user import User
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -101,7 +103,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 async def get_current_user(
     db: AsyncSession = Depends(get_db), token: str = Depends(oauth2_scheme)
-) -> User:
+) -> "User":
     """
     Get the current user from JWT token.
     
@@ -137,8 +139,8 @@ async def get_current_user(
 
 
 async def get_current_active_user(
-    current_user: User = Depends(get_current_user),
-) -> User:
+    current_user: "User" = Depends(get_current_user),
+) -> "User":
     """
     Get the current active user.
     
@@ -157,8 +159,8 @@ async def get_current_active_user(
 
 
 async def get_current_active_superuser(
-    current_user: User = Depends(get_current_user),
-) -> User:
+    current_user: "User" = Depends(get_current_user),
+) -> "User":
     """
     Get the current active superuser.
     

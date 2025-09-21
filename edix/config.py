@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Edix"
     VERSION: str = "0.1.0"
     API_PREFIX: str = "/api"
+    API_V1_STR: str = "/api/v1"
     DEBUG: bool = False
     
     # Server settings
