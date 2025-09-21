@@ -6,10 +6,11 @@ from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ..models.schema import Schema, SchemaCreate, SchemaUpdate, SchemaInDB
+from ..models.schema import DBSchema
+from ..schemas.schema import SchemaCreate, SchemaUpdate, SchemaInDB
 from .base import CRUDBase, CRUDBaseWithOwner
 
-class CRUDSchema(CRUDBaseWithOwner[Schema, SchemaCreate, SchemaUpdate]):
+class CRUDSchema(CRUDBaseWithOwner[DBSchema, SchemaCreate, SchemaUpdate]):
     """
     CRUD operations for Schema model with owner-specific methods.
     """
@@ -21,7 +22,7 @@ class CRUDSchema(CRUDBaseWithOwner[Schema, SchemaCreate, SchemaUpdate]):
         name: str,
         skip: int = 0,
         limit: int = 100
-    ) -> List[Schema]:
+    ) -> List[DBSchema]:
         """Get schemas by name (case-insensitive search)."""
         result = await db.execute(
             select(self.model)
@@ -37,7 +38,7 @@ class CRUDSchema(CRUDBaseWithOwner[Schema, SchemaCreate, SchemaUpdate]):
         *, 
         name: str, 
         owner_id: int
-    ) -> Optional[Schema]:
+    ) -> Optional[DBSchema]:
         """Get a schema by name and owner ID."""
         result = await db.execute(
             select(self.model)
@@ -54,7 +55,7 @@ class CRUDSchema(CRUDBaseWithOwner[Schema, SchemaCreate, SchemaUpdate]):
         *, 
         skip: int = 0, 
         limit: int = 100
-    ) -> List[Schema]:
+    ) -> List[DBSchema]:
         """Get all public schemas."""
         result = await db.execute(
             select(self.model)
@@ -71,7 +72,7 @@ class CRUDSchema(CRUDBaseWithOwner[Schema, SchemaCreate, SchemaUpdate]):
         *, 
         obj_in: SchemaCreate, 
         owner_id: int
-    ) -> Schema:
+    ) -> DBSchema:
         """Create a new schema with an owner."""
         # Check if schema with this name already exists for the owner
         existing_schema = await self.get_by_name_and_owner(
@@ -98,9 +99,9 @@ class CRUDSchema(CRUDBaseWithOwner[Schema, SchemaCreate, SchemaUpdate]):
         self, 
         db: AsyncSession, 
         *, 
-        db_obj: Schema, 
+        db_obj: DBSchema, 
         obj_in: Union[SchemaUpdate, Dict[str, Any]]
-    ) -> Schema:
+    ) -> DBSchema:
         """Update a schema."""
         if isinstance(obj_in, dict):
             update_data = obj_in
@@ -178,4 +179,4 @@ class CRUDSchema(CRUDBaseWithOwner[Schema, SchemaCreate, SchemaUpdate]):
         }
 
 # Create a singleton instance
-schema_crud = CRUDSchema(Schema)
+schema_crud = CRUDSchema(DBSchema)
