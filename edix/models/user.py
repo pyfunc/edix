@@ -11,7 +11,8 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from .base import Base, BaseCRUD
+from ..db.base import Base
+from .base import BaseCRUD
 from ..core.security import get_password_hash, verify_password
 
 # Pydantic models
@@ -101,7 +102,7 @@ class DBUser(Base):
     """SQLAlchemy user model."""
     __tablename__ = "users"
     
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=True)

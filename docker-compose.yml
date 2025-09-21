@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  edix:
+    build: .
+    ports:
+      - "8008:8000"
+    volumes:
+      - edix_data:/data
+      - ./config/edix.yaml:/app/edix.yaml:ro
+    environment:
+      - EDIX_DB_PATH=/data/edix.db
+      - EDIX_LOG_LEVEL=info
+    restart: unless-stopped
+    networks:
+      - edix_network
+  
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - edix
+    networks:
+      - edix_network
+
+volumes:
+  edix_data:
+
+networks:
+  edix_network:
+    driver: bridge

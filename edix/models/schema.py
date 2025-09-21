@@ -12,7 +12,8 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from .base import Base, BaseCRUD
+from ..db.base import Base
+from .base import BaseCRUD
 
 # Enums
 class SchemaType(str, Enum):
@@ -172,15 +173,15 @@ class DBSchema(Base):
     """SQLAlchemy schema model."""
     __tablename__ = "schemas"
     
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
     schema_type = Column(String(50), nullable=False, default="json_schema")
     version = Column(String(50), nullable=False, default="1.0.0")
     is_active = Column(Boolean, default=True, nullable=False)
-    fields = Column(JSONB, nullable=False)
-    metadata_ = Column("metadata", JSONB, nullable=True)
-    owner_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    fields = Column(JSON, nullable=False)
+    metadata_ = Column("metadata", JSON, nullable=True)
+    owner_id = Column(String(36), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

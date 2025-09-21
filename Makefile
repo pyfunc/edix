@@ -156,13 +156,13 @@ install:
 	make install-api
 
 install-frontend:
-	cd frontend && npm install
+	cd frontend_src && npm install --ignore-scripts
 
 install-backend:
-	cd backend-node && npm install
+	pip install -e . && pip install pytest pydantic[email] pydantic-settings python-jose[cryptography] passlib[bcrypt]
 
 install-api:
-	cd api-python && pip install -r requirements.txt
+	pip install -e . && pip install pytest pydantic[email] pydantic-settings python-jose[cryptography] passlib[bcrypt]
 
 
 

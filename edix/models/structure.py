@@ -12,7 +12,8 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from .base import Base, BaseCRUD
+from ..db.base import Base
+from .base import BaseCRUD
 
 # Enums
 class StructureStatus(str, Enum):
@@ -155,15 +156,15 @@ class DBStructure(Base):
     """SQLAlchemy structure model."""
     __tablename__ = "structures"
     
-    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
     structure_type = Column(String(50), nullable=False, default="collection")
     status = Column(String(50), nullable=False, default="draft")
     is_public = Column(Boolean, default=False, nullable=False)
-    metadata_ = Column("metadata", JSONB, nullable=True)
-    owner_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    schema_id = Column(PG_UUID(as_uuid=True), ForeignKey("schemas.id"), nullable=True)
+    metadata_ = Column("metadata", JSON, nullable=True)
+    owner_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    schema_id = Column(String(36), ForeignKey("schemas.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
