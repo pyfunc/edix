@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-from ...config import settings
+from ..config import settings
 
 # Create async engine
 engine = create_async_engine(
@@ -32,7 +32,7 @@ async_session_factory = sessionmaker(
 Base = declarative_base()
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    ""
+    """
     Dependency function that yields database sessions.
     
     Example:
@@ -51,11 +51,11 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 async def init_db() -> None:
-    ""Create database tables."""
+    """Create database tables."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 async def close_db() -> None:
-    ""Close the database connections."""
+    """Close the database connections."""
     if engine is not None:
         await engine.dispose()
