@@ -3,7 +3,7 @@ User-related Pydantic models for request/response validation.
 """
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 
 from .base import (
     BaseSchema, BaseCreateSchema, BaseUpdateSchema, 
@@ -18,7 +18,8 @@ class UserBase(BaseSchema):
     is_active: bool = True
     is_superuser: bool = False
     
-    @validator('username')
+    @field_validator('username')
+    @classmethod
     def username_must_be_alphanumeric(cls, v):
         if not v.isalnum():
             raise ValueError('Username must be alphanumeric')
@@ -28,8 +29,8 @@ class UserCreate(UserBase, BaseCreateSchema):
     """Schema for creating a new user."""
     password: str = Field(..., min_length=8)
     
-    class Config(UserBase.Config):
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "user@example.com",
                 "username": "johndoe",
@@ -39,6 +40,7 @@ class UserCreate(UserBase, BaseCreateSchema):
                 "is_superuser": False
             }
         }
+    )
 
 class UserUpdate(BaseUpdateSchema):
     """Schema for updating an existing user."""
@@ -48,14 +50,15 @@ class UserUpdate(BaseUpdateSchema):
     password: Optional[str] = Field(None, min_length=8)
     is_active: Optional[bool] = None
     
-    @validator('username')
+    @field_validator('username')
+    @classmethod
     def username_must_be_alphanumeric(cls, v):
         if v is not None and not v.isalnum():
             raise ValueError('Username must be alphanumeric')
         return v
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "newemail@example.com",
                 "username": "newusername",
@@ -63,13 +66,13 @@ class UserUpdate(BaseUpdateSchema):
                 "password": "newsecurepassword123"
             }
         }
+    )
 
 class UserInDB(UserBase, BaseInDBSchema):
     """User schema as stored in the database."""
     hashed_password: str
     
-    class Config(UserBase.Config):
-        pass
+    model_config = ConfigDict()
 
 class UserResponse(UserBase, BaseResponseSchema):
     """User schema for API responses."""
@@ -80,26 +83,28 @@ class UserLogin(BaseModel):
     username: str
     password: str
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "username": "johndoe",
                 "password": "securepassword123"
             }
         }
+    )
 
 class Token(BaseModel):
     """Schema for JWT token response."""
     access_token: str
     token_type: str = "bearer"
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
                 "token_type": "bearer"
             }
         }
+    )
 
 class TokenData(BaseModel):
     """Schema for token data."""

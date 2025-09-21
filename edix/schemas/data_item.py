@@ -4,7 +4,7 @@ DataItem-related Pydantic models for request/response validation.
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field, validator, HttpUrl
+from pydantic import BaseModel, Field, field_validator, HttpUrl, ConfigDict
 
 from .base import (
     BaseSchema, BaseCreateSchema, BaseUpdateSchema, 
@@ -26,19 +26,22 @@ class DataItemBase(BaseSchema):
     metadata_: Dict[str, Any] = Field(default_factory=dict, alias="metadata")
     tags: List[str] = Field(default_factory=list)
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def name_must_not_be_empty(cls, v):
         if not v.strip():
             raise ValueError('Name must not be empty')
         return v.strip()
     
-    @validator('data', 'metadata_')
+    @field_validator('data', 'metadata_')
+    @classmethod
     def validate_json_fields(cls, v):
         if not isinstance(v, dict):
             raise ValueError('Must be a JSON object')
         return v
     
-    @validator('tags')
+    @field_validator('tags')
+    @classmethod
     def validate_tags(cls, v):
         if not isinstance(v, list):
             raise ValueError('Tags must be a list of strings')
@@ -48,8 +51,8 @@ class DataItemCreate(DataItemBase, BaseCreateSchema):
     """Schema for creating a new data item."""
     structure_id: int = Field(..., description="ID of the parent structure")
     
-    class Config(DataItemBase.Config):
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "User Profile - John Doe",
                 "description": "Profile information for John Doe",
@@ -68,6 +71,7 @@ class DataItemCreate(DataItemBase, BaseCreateSchema):
                 "tags": ["user", "profile"]
             }
         }
+    )
 
 class DataItemUpdate(BaseUpdateSchema):
     """Schema for updating an existing data item."""
@@ -78,26 +82,29 @@ class DataItemUpdate(BaseUpdateSchema):
     metadata_: Optional[Dict[str, Any]] = Field(None, alias="metadata")
     tags: Optional[List[str]] = None
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def name_must_not_be_empty(cls, v):
         if v is not None and not v.strip():
             raise ValueError('Name must not be empty')
         return v.strip() if v else v
     
-    @validator('data', 'metadata_')
+    @field_validator('data', 'metadata_')
+    @classmethod
     def validate_json_fields(cls, v):
         if v is not None and not isinstance(v, dict):
             raise ValueError('Must be a JSON object')
         return v
     
-    @validator('tags')
+    @field_validator('tags')
+    @classmethod
     def validate_tags(cls, v):
         if v is not None and not isinstance(v, list):
             raise ValueError('Tags must be a list of strings')
         return [str(tag).strip() for tag in v] if v else None
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "Updated User Profile - John Doe",
                 "description": "Updated profile information",
@@ -117,6 +124,7 @@ class DataItemUpdate(BaseUpdateSchema):
                 "tags": ["user", "profile", "updated"]
             }
         }
+    )
 
 class DataItemInDB(DataItemBase, BaseInDBSchema):
     """Schema as stored in the database."""
@@ -124,11 +132,12 @@ class DataItemInDB(DataItemBase, BaseInDBSchema):
     version: int = 1
     owner_id: int
     
-    class Config(DataItemBase.Config):
-        fields = {
+    model_config = ConfigDict(
+        fields={
             'metadata_': {'exclude': False},
             'data': {'exclude': False}
         }
+    )
 
 class DataItemResponse(DataItemInDB, BaseResponseSchema):
     """Schema for API responses."""
@@ -138,8 +147,8 @@ class BulkDataItemCreate(BaseModel):
     """Schema for creating multiple data items in bulk."""
     items: List[DataItemCreate]
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "items": [
                     {
@@ -157,6 +166,7 @@ class BulkDataItemCreate(BaseModel):
                 ]
             }
         }
+    )
 
 class DataItemSearch(BaseModel):
     """Schema for searching data items."""
@@ -171,8 +181,8 @@ class DataItemSearch(BaseModel):
     limit: int = 100
     offset: int = 0
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "query": "john",
                 "status": "published",
@@ -182,3 +192,4 @@ class DataItemSearch(BaseModel):
                 "offset": 0
             }
         }
+    )

@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from sqlalchemy import Column, DateTime, String, Text, JSON, Boolean, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -16,13 +16,13 @@ from .base import Base, BaseCRUD
 
 # Enums
 class StructureStatus(str, Enum):
-    ""Status of a structure."""
+    """Status of a structure."""
     DRAFT = "draft"
     PUBLISHED = "published"
     ARCHIVED = "archived"
 
 class StructureType(str, Enum):
-    ""Types of structures supported by the system."""
+    """Types of structures supported by the system."""
     COLLECTION = "collection"
     DOCUMENT = "document"
     TABLE = "table"
@@ -31,7 +31,7 @@ class StructureType(str, Enum):
 
 # Pydantic models
 class StructureBase(BaseModel):
-    ""Base structure model with common attributes."""
+    """Base structure model with common attributes."""
     name: str = Field(..., description="Name of the structure")
     description: Optional[str] = Field(None, description="Description of the structure")
     structure_type: StructureType = Field(
@@ -52,10 +52,10 @@ class StructureBase(BaseModel):
         description="Additional metadata for the structure"
     )
     
-    class Config:
-        orm_mode = True
-        allow_population_by_field_name = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        json_schema_extra={
             "example": {
                 "name": "UserProfiles",
                 "description": "Collection of user profiles",
@@ -68,22 +68,24 @@ class StructureBase(BaseModel):
                 }
             }
         }
+    )
 
 class StructureCreate(StructureBase):
-    ""Model for creating a new structure."""
+    """Model for creating a new structure."""
     schema_id: Optional[UUID] = Field(
         None, 
         description="ID of the schema this structure is based on"
     )
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         if not v or not v.strip():
             raise ValueError('Structure name cannot be empty')
         return v.strip()
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "UserProfiles",
                 "description": "Collection of user profiles",
@@ -97,9 +99,10 @@ class StructureCreate(StructureBase):
                 "schema_id": "00000000-0000-0000-0000-000000000000"
             }
         }
+    )
 
 class StructureUpdate(BaseModel):
-    ""Model for updating an existing structure."""
+    """Model for updating an existing structure."""
     name: Optional[str] = Field(None, description="Name of the structure")
     description: Optional[str] = Field(None, description="Description of the structure")
     status: Optional[StructureStatus] = Field(None, description="Status of the structure")
@@ -113,9 +116,9 @@ class StructureUpdate(BaseModel):
         description="ID of the schema this structure is based on"
     )
     
-    class Config:
-        orm_mode = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "name": "UpdatedUserProfiles",
                 "description": "Updated collection of user profiles",
@@ -127,29 +130,29 @@ class StructureUpdate(BaseModel):
                 }
             }
         }
+    )
 
 class StructureInDBBase(StructureBase):
-    ""Base model for structure stored in database."""
+    """Base model for structure stored in database."""
     id: UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
     owner_id: UUID
     schema_id: Optional[UUID]
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Structure(StructureInDBBase):
-    ""Structure model for API responses."""
+    """Structure model for API responses."""
     item_count: int = Field(0, description="Number of items in the structure")
 
 class StructureInDB(StructureInDBBase):
-    ""Structure model with raw data for database storage."""
+    """"Structure model with raw data for database storage."""
     pass
 
 # SQLAlchemy model
 class DBStructure(Base):
-    ""SQLAlchemy structure model."""
+    """SQLAlchemy structure model."""
     __tablename__ = "structures"
     
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -180,7 +183,7 @@ class DBStructure(Base):
         return f"<Structure {self.name} ({self.structure_type})>"
     
     def to_dict(self):
-        ""Convert the structure to a dictionary."""
+        """Convert the structure to a dictionary."""
         return {
             "id": str(self.id),
             "name": self.name,
@@ -198,7 +201,7 @@ class DBStructure(Base):
 
 # CRUD operations
 class StructureCRUD(BaseCRUD[DBStructure, StructureCreate, StructureUpdate]):
-    ""CRUD operations for structures."""
+    """CRUD operations for structures."""
     
     async def get_multi_by_owner(
         self, 
@@ -209,7 +212,7 @@ class StructureCRUD(BaseCRUD[DBStructure, StructureCreate, StructureUpdate]):
         limit: int = 100,
         include_public: bool = False
     ) -> List[DBStructure]:
-        ""Get multiple structures by owner, optionally including public ones."""
+        """Get multiple structures by owner, optionally including public ones."""
         query = db.query(self.model).filter(self.model.owner_id == owner_id)
         
         if include_public:
@@ -226,7 +229,7 @@ class StructureCRUD(BaseCRUD[DBStructure, StructureCreate, StructureUpdate]):
         skip: int = 0, 
         limit: int = 100
     ) -> List[DBStructure]:
-        ""Get all public structures."""
+        """Get all public structures."""
         return (
             db.query(self.model)
             .filter(self.model.is_public == True)
@@ -243,7 +246,7 @@ class StructureCRUD(BaseCRUD[DBStructure, StructureCreate, StructureUpdate]):
         obj_in: StructureCreate, 
         owner_id: UUID
     ) -> DBStructure:
-        ""Create a new structure with an owner."""
+        """Create a new structure with an owner."""
         db_obj = self.model(
             name=obj_in.name,
             description=obj_in.description,
@@ -266,7 +269,7 @@ class StructureCRUD(BaseCRUD[DBStructure, StructureCreate, StructureUpdate]):
         db_obj: DBStructure, 
         obj_in: StructureUpdate
     ) -> DBStructure:
-        ""Update a structure."""
+        """Update a structure."""
         update_data = obj_in.dict(exclude_unset=True)
         
         # Handle metadata update to merge with existing metadata

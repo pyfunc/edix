@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from sqlalchemy import Column, DateTime, String, Text, JSON, Boolean, ForeignKey, Index, Integer
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -16,14 +16,14 @@ from .base import Base, BaseCRUD
 
 # Enums
 class DataItemStatus(str, Enum):
-    ""Status of a data item."""
+    """Status of a data item."""
     DRAFT = "draft"
     PUBLISHED = "published"
     ARCHIVED = "archived"
 
 # Pydantic models
 class DataItemBase(BaseModel):
-    ""Base data item model with common attributes."""
+    """Base data item model with common attributes."""
     name: str = Field(..., description="Name or title of the data item")
     description: Optional[str] = Field(None, description="Description of the data item")
     status: DataItemStatus = Field(
@@ -36,10 +36,10 @@ class DataItemBase(BaseModel):
         description="Additional metadata for the data item"
     )
     
-    class Config:
-        orm_mode = True
-        allow_population_by_field_name = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        json_schema_extra={
             "example": {
                 "name": "User Profile - John Doe",
                 "description": "Profile data for John Doe",
@@ -50,25 +50,28 @@ class DataItemBase(BaseModel):
                 }
             }
         }
+    )
 
 class DataItemCreate(DataItemBase):
-    ""Model for creating a new data item."""
+    """Model for creating a new data item."""
     data: Dict[str, Any] = Field(..., description="The actual data content")
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         if not v or not v.strip():
             raise ValueError('Data item name cannot be empty')
         return v.strip()
     
-    @validator('data')
+    @field_validator('data')
+    @classmethod
     def validate_data(cls, v):
         if not isinstance(v, dict):
             raise ValueError('Data must be a dictionary')
         return v
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "User Profile - John Doe",
                 "description": "Profile data for John Doe",
@@ -86,9 +89,10 @@ class DataItemCreate(DataItemBase):
                 }
             }
         }
+    )
 
 class DataItemUpdate(BaseModel):
-    ""Model for updating an existing data item."""
+    """Model for updating an existing data item."""
     name: Optional[str] = Field(None, description="Name or title of the data item")
     description: Optional[str] = Field(None, description="Description of the data item")
     status: Optional[DataItemStatus] = Field(None, description="Status of the data item")
@@ -98,9 +102,9 @@ class DataItemUpdate(BaseModel):
         description="Additional metadata for the data item"
     )
     
-    class Config:
-        orm_mode = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "name": "Updated User Profile - John Doe",
                 "description": "Updated profile data for John Doe",
@@ -118,31 +122,31 @@ class DataItemUpdate(BaseModel):
                 }
             }
         }
+    )
 
 class DataItemInDBBase(DataItemBase):
-    ""Base model for data item stored in database."""
+    """Base model for data item stored in database."""
     id: UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
     owner_id: UUID
     structure_id: UUID
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class DataItem(DataItemInDBBase):
-    ""Data item model for API responses."""
+    """Data item model for API responses."""
     data: Dict[str, Any] = Field(..., description="The actual data content")
     version: int = Field(1, description="Version number of the data item")
 
 class DataItemInDB(DataItemInDBBase):
-    ""Data item model with raw data for database storage."""
+    """Data item model with raw data for database storage."""
     data: Dict[str, Any] = Field(..., description="The actual data content")
     version: int = Field(1, description="Version number of the data item")
 
 # SQLAlchemy model
 class DBDataItem(Base):
-    ""SQLAlchemy data item model."""
+    """SQLAlchemy data item model."""
     __tablename__ = "data_items"
     
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -173,7 +177,7 @@ class DBDataItem(Base):
         return f"<DataItem {self.name} ({self.status})>"
     
     def to_dict(self):
-        ""Convert the data item to a dictionary."""
+        """Convert the data item to a dictionary."""
         return {
             "id": str(self.id),
             "name": self.name,
@@ -190,7 +194,7 @@ class DBDataItem(Base):
 
 # CRUD operations
 class DataItemCRUD(BaseCRUD[DBDataItem, DataItemCreate, DataItemUpdate]):
-    ""CRUD operations for data items."""
+    """CRUD operations for data items."""
     
     async def get_multi_by_structure(
         self, 
@@ -201,7 +205,7 @@ class DataItemCRUD(BaseCRUD[DBDataItem, DataItemCreate, DataItemUpdate]):
         limit: int = 100,
         status: Optional[str] = None
     ) -> List[DBDataItem]:
-        ""Get multiple data items by structure ID, optionally filtered by status."""
+        """Get multiple data items by structure ID, optionally filtered by status."""
         query = db.query(self.model).filter(self.model.structure_id == structure_id)
         
         if status:
@@ -217,7 +221,7 @@ class DataItemCRUD(BaseCRUD[DBDataItem, DataItemCreate, DataItemUpdate]):
         skip: int = 0, 
         limit: int = 100
     ) -> List[DBDataItem]:
-        ""Get multiple data items by owner ID."""
+        """Get multiple data items by owner ID."""
         return (
             db.query(self.model)
             .filter(self.model.owner_id == owner_id)
@@ -235,7 +239,7 @@ class DataItemCRUD(BaseCRUD[DBDataItem, DataItemCreate, DataItemUpdate]):
         owner_id: UUID,
         structure_id: UUID
     ) -> DBDataItem:
-        ""Create a new data item with an owner and structure."""
+        """Create a new data item with an owner and structure."""
         db_obj = self.model(
             name=obj_in.name,
             description=obj_in.description,
@@ -257,7 +261,7 @@ class DataItemCRUD(BaseCRUD[DBDataItem, DataItemCreate, DataItemUpdate]):
         db_obj: DBDataItem, 
         obj_in: DataItemUpdate
     ) -> DBDataItem:
-        ""Update a data item, handling versioning."""
+        """Update a data item, handling versioning."""
         update_data = obj_in.dict(exclude_unset=True)
         
         # Handle metadata update to merge with existing metadata

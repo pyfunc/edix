@@ -142,7 +142,7 @@ module.exports = (env, argv) => {
         },
       },
       hot: true,
-      port: 3000,
+      port: 3003,
       historyApiFallback: true,
       client: {
         overlay: {

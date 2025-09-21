@@ -4,7 +4,7 @@ Structure-related Pydantic models for request/response validation.
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field, validator, HttpUrl
+from pydantic import BaseModel, Field, field_validator, HttpUrl, ConfigDict
 
 from .base import (
     BaseSchema, BaseCreateSchema, BaseUpdateSchema, 
@@ -38,13 +38,15 @@ class StructureBase(BaseSchema):
         description="ID of the schema this structure follows"
     )
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def name_must_be_valid(cls, v):
         if not v.replace('_', '').replace('-', '').replace(' ', '').isalnum():
             raise ValueError('Name must be alphanumeric with underscores, hyphens, or spaces')
         return v
     
-    @validator('metadata_')
+    @field_validator('metadata_')
+    @classmethod
     def validate_metadata(cls, v):
         if not isinstance(v, dict):
             raise ValueError('Metadata must be a JSON object')
@@ -52,8 +54,8 @@ class StructureBase(BaseSchema):
 
 class StructureCreate(StructureBase, BaseCreateSchema):
     """Schema for creating a new structure."""
-    class Config(StructureBase.Config):
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "user_profiles",
                 "description": "User profile information",
@@ -67,6 +69,7 @@ class StructureCreate(StructureBase, BaseCreateSchema):
                 "schema_id": 1
             }
         }
+    )
 
 class StructureUpdate(BaseUpdateSchema):
     """Schema for updating an existing structure."""
@@ -78,20 +81,22 @@ class StructureUpdate(BaseUpdateSchema):
     metadata_: Optional[Dict[str, Any]] = Field(None, alias="metadata")
     schema_id: Optional[int] = None
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def name_must_be_valid(cls, v):
         if v is not None and not v.replace('_', '').replace('-', '').replace(' ', '').isalnum():
             raise ValueError('Name must be alphanumeric with underscores, hyphens, or spaces')
         return v
     
-    @validator('metadata_')
+    @field_validator('metadata_')
+    @classmethod
     def validate_metadata(cls, v):
         if v is not None and not isinstance(v, dict):
             raise ValueError('Metadata must be a JSON object')
         return v
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "updated_user_profiles",
                 "description": "Updated user profile information",
@@ -103,15 +108,17 @@ class StructureUpdate(BaseUpdateSchema):
                 }
             }
         }
+    )
 
 class StructureInDB(StructureBase, BaseInDBSchema):
     """Schema as stored in the database."""
     owner_id: int
     
-    class Config(StructureBase.Config):
-        fields = {
+    model_config = ConfigDict(
+        fields={
             'metadata_': {'exclude': False}
         }
+    )
 
 class StructureResponse(StructureInDB, BaseResponseSchema):
     """Schema for API responses."""
@@ -125,8 +132,8 @@ class StructureStats(BaseModel):
     updated_at: Optional[datetime] = None
     last_updated: Optional[datetime] = None
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "item_count": 42,
                 "status_distribution": {
@@ -139,3 +146,4 @@ class StructureStats(BaseModel):
                 "last_updated": "2023-06-15T12:34:56"
             }
         }
+    )

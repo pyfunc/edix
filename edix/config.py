@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import AnyHttpUrl, PostgresDsn, validator
+from pydantic import AnyHttpUrl, PostgresDsn, field_validator, ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -53,12 +53,14 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = ConfigDict(
+        case_sensitive=True,
+        env_file=".env",
+        env_file_encoding="utf-8"
+    )
     
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
@@ -66,11 +68,13 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
     
-    @validator("WS_URL", pre=True)
-    def assemble_ws_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+    @field_validator("WS_URL", mode="before")
+    @classmethod
+    def assemble_ws_url(cls, v: Optional[str], info) -> str:
         if v:
             return v
         # Default to the same host as the API
+        values = info.data if hasattr(info, 'data') else {}
         host = values.get("HOST", "localhost")
         port = values.get("PORT", 8000)
         ws_protocol = "wss" if values.get("HTTPS", False) else "ws"

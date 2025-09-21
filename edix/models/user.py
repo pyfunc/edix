@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 from sqlalchemy import Boolean, Column, DateTime, String, Text, JSON, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
@@ -26,9 +26,9 @@ class UserBase(BaseModel):
         description="User preferences stored as JSON"
     )
 
-    class Config:
-        orm_mode = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "email": "user@example.com",
                 "full_name": "John Doe",
@@ -37,19 +37,21 @@ class UserBase(BaseModel):
                 "preferences": {"theme": "light"}
             }
         }
+    )
 
 class UserCreate(UserBase):
     """Model for creating a new user."""
     password: str = Field(..., min_length=8, description="User's password")
     
-    @validator('password')
+    @field_validator('password')
+    @classmethod
     def validate_password(cls, v):
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters')
         return v
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "user@example.com",
                 "password": "securepassword123",
@@ -59,14 +61,15 @@ class UserCreate(UserBase):
                 "preferences": {"theme": "light"}
             }
         }
+    )
 
 class UserUpdate(UserBase):
     """Model for updating an existing user."""
     email: Optional[EmailStr] = None
     password: Optional[str] = Field(None, min_length=8, description="New password")
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "new.email@example.com",
                 "password": "newsecurepassword123",
@@ -75,6 +78,7 @@ class UserUpdate(UserBase):
                 "preferences": {"theme": "dark"}
             }
         }
+    )
 
 class UserInDBBase(UserBase):
     """Base model for user stored in database."""
@@ -82,8 +86,7 @@ class UserInDBBase(UserBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class User(UserInDBBase):
     """User model for API responses."""

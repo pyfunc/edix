@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from sqlalchemy import Column, DateTime, String, Text, JSON, Boolean, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -16,7 +16,7 @@ from .base import Base, BaseCRUD
 
 # Enums
 class SchemaType(str, Enum):
-    ""Types of schemas supported by the system."""
+    """Types of schemas supported by the system."""
     JSON_SCHEMA = "json_schema"
     OPEN_API = "open_api"
     GRAPHQL = "graphql"
@@ -26,7 +26,7 @@ class SchemaType(str, Enum):
 
 # Pydantic models
 class SchemaField(BaseModel):
-    ""A single field in a schema."""
+    """A single field in a schema."""
     name: str = Field(..., description="Name of the field")
     type: str = Field(..., description="Data type of the field")
     required: bool = Field(True, description="Whether the field is required")
@@ -38,7 +38,7 @@ class SchemaField(BaseModel):
     )
 
 class SchemaBase(BaseModel):
-    ""Base schema model with common attributes."""
+    """Base schema model with common attributes."""
     name: str = Field(..., description="Name of the schema")
     description: Optional[str] = Field(None, description="Description of the schema")
     schema_type: SchemaType = Field(
@@ -53,10 +53,10 @@ class SchemaBase(BaseModel):
         description="Additional metadata for the schema"
     )
     
-    class Config:
-        orm_mode = True
-        allow_population_by_field_name = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        json_schema_extra={
             "example": {
                 "name": "UserProfile",
                 "description": "Schema for user profile data",
@@ -69,19 +69,21 @@ class SchemaBase(BaseModel):
                 }
             }
         }
+    )
 
 class SchemaCreate(SchemaBase):
-    ""Model for creating a new schema."""
+    """Model for creating a new schema."""
     fields: List[SchemaField] = Field(..., description="List of fields in the schema")
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         if not v or not v.strip():
             raise ValueError('Schema name cannot be empty')
         return v.strip()
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "UserProfile",
                 "description": "Schema for user profile data",
@@ -115,9 +117,10 @@ class SchemaCreate(SchemaBase):
                 ]
             }
         }
+    )
 
 class SchemaUpdate(BaseModel):
-    ""Model for updating an existing schema."""
+    """Model for updating an existing schema."""
     name: Optional[str] = Field(None, description="Name of the schema")
     description: Optional[str] = Field(None, description="Description of the schema")
     version: Optional[str] = Field(None, description="Version of the schema")
@@ -131,9 +134,9 @@ class SchemaUpdate(BaseModel):
         description="List of fields in the schema"
     )
     
-    class Config:
-        orm_mode = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "name": "UpdatedUserProfile",
                 "description": "Updated schema for user profile data",
@@ -145,28 +148,28 @@ class SchemaUpdate(BaseModel):
                 }
             }
         }
+    )
 
 class SchemaInDBBase(SchemaBase):
-    ""Base model for schema stored in database."""
+    """Base model for schema stored in database."""
     id: UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Schema(SchemaInDBBase):
-    ""Schema model for API responses."""
+    """Schema model for API responses."""
     fields: List[Dict[str, Any]] = Field(..., description="List of fields in the schema")
 
 class SchemaInDB(SchemaInDBBase):
-    ""Schema model with raw data for database storage."""
+    """Schema model with raw data for database storage."""
     fields: List[Dict[str, Any]] = Field(..., description="Raw field definitions")
     owner_id: Optional[UUID] = Field(None, description="ID of the user who owns this schema")
 
 # SQLAlchemy model
 class DBSchema(Base):
-    ""SQLAlchemy schema model."""
+    """SQLAlchemy schema model."""
     __tablename__ = "schemas"
     
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -194,7 +197,7 @@ class DBSchema(Base):
         return f"<Schema {self.name} ({self.schema_type})>"
     
     def to_dict(self):
-        ""Convert the schema to a dictionary."""
+        """Convert the schema to a dictionary."""
         return {
             "id": str(self.id),
             "name": self.name,
@@ -211,12 +214,12 @@ class DBSchema(Base):
 
 # CRUD operations
 class SchemaCRUD(BaseCRUD[DBSchema, SchemaCreate, SchemaUpdate]):
-    ""CRUD operations for schemas."""
+    """CRUD operations for schemas."""
     
     async def get_by_name(
         self, db, *, name: str, schema_type: Optional[str] = None
     ) -> Optional[DBSchema]:
-        ""Get a schema by name and optionally by type."""
+        """Get a schema by name and optionally by type."""
         query = db.query(self.model).filter(self.model.name == name)
         if schema_type:
             query = query.filter(self.model.schema_type == schema_type)
@@ -225,7 +228,7 @@ class SchemaCRUD(BaseCRUD[DBSchema, SchemaCreate, SchemaUpdate]):
     async def get_multi_by_owner(
         self, db, *, owner_id: UUID, skip: int = 0, limit: int = 100
     ) -> List[DBSchema]:
-        ""Get multiple schemas by owner."""
+        """Get multiple schemas by owner."""
         return (
             db.query(self.model)
             .filter(self.model.owner_id == owner_id)
@@ -237,7 +240,7 @@ class SchemaCRUD(BaseCRUD[DBSchema, SchemaCreate, SchemaUpdate]):
     async def create_with_owner(
         self, db, *, obj_in: SchemaCreate, owner_id: UUID
     ) -> DBSchema:
-        ""Create a new schema with an owner."""
+        """Create a new schema with an owner."""
         db_obj = self.model(
             name=obj_in.name,
             description=obj_in.description,
@@ -256,7 +259,7 @@ class SchemaCRUD(BaseCRUD[DBSchema, SchemaCreate, SchemaUpdate]):
     async def update(
         self, db, *, db_obj: DBSchema, obj_in: SchemaUpdate
     ) -> DBSchema:
-        ""Update a schema."""
+        """Update a schema."""
         update_data = obj_in.dict(exclude_unset=True)
         
         # Handle fields update if provided

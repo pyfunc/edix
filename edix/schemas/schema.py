@@ -3,7 +3,7 @@ Schema-related Pydantic models for request/response validation.
 """
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from .base import (
     BaseSchema, BaseCreateSchema, BaseUpdateSchema, 
@@ -16,7 +16,8 @@ class SchemaBase(BaseSchema):
     description: Optional[str] = Field(None, max_length=500)
     is_public: bool = Field(default=True)
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def name_must_be_valid(cls, v):
         if not v.replace('_', '').isalnum():
             raise ValueError('Name must be alphanumeric with underscores')
@@ -26,7 +27,8 @@ class SchemaCreate(SchemaBase, BaseCreateSchema):
     """Schema for creating a new data schema."""
     schema_definition: Dict[str, Any]
     
-    @validator('schema_definition')
+    @field_validator('schema_definition')
+    @classmethod
     def validate_schema_definition(cls, v):
         if not isinstance(v, dict):
             raise ValueError('Schema definition must be a JSON object')
@@ -40,8 +42,8 @@ class SchemaCreate(SchemaBase, BaseCreateSchema):
             
         return v
     
-    class Config(SchemaBase.Config):
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "person",
                 "description": "A person schema",
@@ -56,6 +58,7 @@ class SchemaCreate(SchemaBase, BaseCreateSchema):
                 }
             }
         }
+    )
 
 class SchemaUpdate(BaseUpdateSchema):
     """Schema for updating an existing data schema."""
@@ -64,20 +67,22 @@ class SchemaUpdate(BaseUpdateSchema):
     is_public: Optional[bool] = None
     schema_definition: Optional[Dict[str, Any]] = None
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def name_must_be_valid(cls, v):
         if v is not None and not v.replace('_', '').isalnum():
             raise ValueError('Name must be alphanumeric with underscores')
         return v.lower() if v else v
     
-    @validator('schema_definition')
+    @field_validator('schema_definition')
+    @classmethod
     def validate_schema_definition(cls, v):
         if v is not None and not isinstance(v, dict):
             raise ValueError('Schema definition must be a JSON object')
         return v
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "updated_person",
                 "description": "Updated person schema",
@@ -93,14 +98,14 @@ class SchemaUpdate(BaseUpdateSchema):
                 }
             }
         }
+    )
 
 class SchemaInDB(SchemaBase, BaseInDBSchema):
     """Schema as stored in the database."""
     schema_definition: Dict[str, Any]
     owner_id: int
     
-    class Config(SchemaBase.Config):
-        pass
+    model_config = ConfigDict()
 
 class SchemaResponse(SchemaInDB, BaseResponseSchema):
     """Schema for API responses."""
@@ -112,21 +117,22 @@ class SchemaValidationError(BaseModel):
     path: str
     message: str
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "path": "age",
                 "message": "-1 is less than the minimum of 0"
             }
         }
+    )
 
 class SchemaValidationResult(BaseModel):
     """Result of schema validation."""
     valid: bool
     errors: List[SchemaValidationError] = []
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "valid": False,
                 "errors": [
@@ -137,3 +143,4 @@ class SchemaValidationResult(BaseModel):
                 ]
             }
         }
+    )

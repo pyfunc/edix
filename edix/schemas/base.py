@@ -5,22 +5,22 @@ This module contains the base schemas that other schemas will inherit from.
 """
 from datetime import datetime
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
-from pydantic import BaseModel, Field, field_validator, model_validator
-from pydantic.generics import GenericModel
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 # Type variables for generic models
 T = TypeVar('T')
 
 class BaseSchema(BaseModel):
     """Base schema with common fields and configuration."""
-    class Config:
-        from_attributes = True  # Replaces orm_mode in Pydantic v2
-        json_encoders = {
+    model_config = ConfigDict(
+        from_attributes=True,  # Replaces orm_mode in Pydantic v2
+        json_encoders={
             datetime: lambda v: v.isoformat() if v else None
-        }
-        extra = 'ignore'
-        validate_assignment = True
-        arbitrary_types_allowed = True
+        },
+        extra='ignore',
+        validate_assignment=True,
+        arbitrary_types_allowed=True
+    )
 
 class BaseCreateSchema(BaseSchema):
     """Schema for creating new records.
@@ -66,13 +66,13 @@ class BaseResponseSchema(BaseInDBSchema):
     This schema is used for all API responses and includes metadata
     that might be useful for the client.
     """
-    model_config = {
-        "json_encoders": {
-            **getattr(BaseInDBSchema.model_config, 'json_encoders', {})
+    model_config = ConfigDict(
+        json_encoders={
+            datetime: lambda v: v.isoformat() if v else None
         }
-    }
+    )
 
-class PaginatedResponse(GenericModel, Generic[T]):
+class PaginatedResponse(BaseModel, Generic[T]):
     """
     Generic paginated response schema.
     
@@ -84,11 +84,11 @@ class PaginatedResponse(GenericModel, Generic[T]):
     size: int
     pages: int
 
-    model_config = {
-        "json_encoders": {
+    model_config = ConfigDict(
+        json_encoders={
             datetime: lambda v: v.isoformat() if v else None
         }
-    }
+    )
 
 def create_response_schema(
     name: str,
