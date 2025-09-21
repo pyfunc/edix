@@ -17,7 +17,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from .database import DatabaseManager
 from .schemas import SchemaManager
 from .models import Structure, DataItem, Schema
-from .api.routes import router as api_router
+from .api.v1 import api_router
 from .api.websocket import websocket_endpoint
 
 # Get package directory

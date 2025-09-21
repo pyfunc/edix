@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     ]
     
     # Database settings
-    DATABASE_URL: str = "sqlite+aiosqlite:///./edix.db"
-    TEST_DATABASE_URL: str = "sqlite+aiosqlite:///./test_edix.db"
+    DATABASE_URL: str = "sqlite:///./edix.db"
+    TEST_DATABASE_URL: str = "sqlite:///./test_edix.db"
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 10
     
