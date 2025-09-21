@@ -67,6 +67,7 @@ def sample_data():
 
 
 @pytest.mark.asyncio
+@pytest.mark.timeout(60)
 async def test_database_initialization(temp_db):
     """Test database initialization."""
     await temp_db.initialize()
@@ -143,6 +144,7 @@ async def test_delete_data(temp_db, sample_schema, sample_data):
 
 
 @pytest.mark.asyncio
+@pytest.mark.timeout(60)
 async def test_export_data(temp_db, sample_schema, sample_data):
     """Test exporting data to JSON."""
     await temp_db.initialize()
@@ -173,6 +175,7 @@ async def test_export_data(temp_db, sample_schema, sample_data):
 
 
 @pytest.mark.asyncio
+@pytest.mark.timeout(60)
 async def test_import_data(temp_db, sample_schema):
     """Test importing data from JSON."""
     await temp_db.initialize()

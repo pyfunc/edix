@@ -135,9 +135,9 @@ module.exports = (env, argv) => {
         publicPath: '/static/',
       },
       proxy: {
-        '/api': 'http://localhost:8000',
+        '/api': 'http://localhost:8008',
         '/ws': {
-          target: 'ws://localhost:8000',
+          target: 'ws://localhost:8008',
           ws: true,
         },
       },

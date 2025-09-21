@@ -44,9 +44,9 @@ restart: down up
 # Test commands
 test:
 	@echo "🚀 Running backend tests with pytest..."
-	python -m pytest edix/tests/ -v
+	python -m pytest edix/tests/ -v --timeout=60 --timeout-method=thread
 	@echo "🚀 Running frontend tests with jest..."
-	cd frontend_src && npm test
+	cd frontend_src && npm test -- --testTimeout=60000
 
 test-all:
 	@echo "🏃 Running all tests (continue on error)..."

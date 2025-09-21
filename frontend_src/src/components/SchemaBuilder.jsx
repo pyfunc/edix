@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useEdix } from '../context/EdixContext';
+import { useEdix } from '../contexts/EdixContext';
 import {
   Box,
   Button,

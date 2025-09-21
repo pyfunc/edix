@@ -194,6 +194,7 @@ def test_export_table_data(client):
         assert response.status_code == 200
 
 
+@pytest.mark.timeout(60)
 def test_import_table_data(client):
     """Test importing table data via API."""
     # Create a test file
@@ -223,6 +224,7 @@ def test_import_table_data(client):
             os.unlink(file_path)
 
 
+@pytest.mark.timeout(60)
 def test_websocket_endpoint():
     """Test WebSocket endpoint."""
     with TestClient(app) as client:
