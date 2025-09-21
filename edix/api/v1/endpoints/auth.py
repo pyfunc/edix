@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ....core.config import settings
+from ....config import settings
 from ....core.security import (
     create_access_token,
     get_current_active_user,
@@ -17,7 +17,7 @@ from ....core.security import (
 )
 from ....crud.crud_user import user_crud
 from ....db.deps import get_db
-from ....models.user import User, UserCreate, UserInDB, Token, TokenPayload
+from ....models.user import User, UserCreate, UserInDB
 from ....schemas.msg import Msg
 from ....schemas.token import Token as TokenSchema
 

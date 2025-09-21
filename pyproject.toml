@@ -8,9 +8,9 @@ version = "1.0.0"
 description = "Universal data structure editor with dynamic SQL schema generation"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Tom Sapletta", email = "info@softreck.dev"}
 ]
 maintainers = [
     {name = "Your Name", email = "your.email@example.com"}

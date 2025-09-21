@@ -83,7 +83,7 @@ if readme_path.exists():
 
 setup(
     name="edix",
-    version="1.0.0",
+    version="1.0.2",
     author="Your Name",
     author_email="your.email@example.com",
     description="Universal data structure editor with dynamic SQL schema generation",

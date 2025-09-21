@@ -163,3 +163,11 @@ install-backend:
 
 install-api:
 	cd api-python && pip install -r requirements.txt
+
+
+
+# ==============================================================================
+# PUBLISHING
+# ==============================================================================
+publish: ## Publish project to PyPI
+	@bash scripts/publish.sh
