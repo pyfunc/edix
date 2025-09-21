@@ -1,236 +1,417 @@
 """
-Database management for Edix
+Database manager with dynamic table creation
 """
 import json
-import sqlite3
-import aiosqlite
+import yaml
+import csv
+import io
+from typing import Dict, Any, List, Optional
 from pathlib import Path
-from typing import Dict, List, Optional, Any, AsyncGenerator
+import aiosqlite
 from datetime import datetime
 
+
 class DatabaseManager:
-    """Manages database connections and operations"""
+    """Dynamic SQLite database manager"""
     
     def __init__(self, db_path: str = "edix.db"):
-        """Initialize database manager"""
         self.db_path = db_path
-        self.conn: Optional[aiosqlite.Connection] = None
+        self.connection = None
         
     async def initialize(self):
-        """Initialize database connection and create tables"""
-        # Create directory if it doesn't exist
-        db_path = Path(self.db_path)
-        db_path.parent.mkdir(parents=True, exist_ok=True)
+        """Initialize database with system tables"""
+        self.connection = await aiosqlite.connect(self.db_path)
+        self.connection.row_factory = aiosqlite.Row
         
-        self.conn = await aiosqlite.connect(self.db_path)
-        self.conn.row_factory = aiosqlite.Row  # Enable column access by name
+        # Create system tables
+        await self.connection.execute("""
+            CREATE TABLE IF NOT EXISTS edix_structures (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                schema TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                meta JSON
+            )
+        """)
         
-        # Enable foreign keys
-        await self.conn.execute("PRAGMA foreign_keys = ON")
-        await self.conn.commit()
+        await self.connection.execute("""
+            CREATE TABLE IF NOT EXISTS edix_migrations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                structure_name TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                migration TEXT NOT NULL,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         
-        # Create metadata tables
-        await self._create_metadata_tables()
+        await self.connection.commit()
     
-    async def _create_metadata_tables(self):
-        """Create system metadata tables"""
-        tables = ["""
-        CREATE TABLE IF NOT EXISTS schemas (
-            name TEXT PRIMARY KEY,
-            definition TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-        """, """
-        CREATE TABLE IF NOT EXISTS structures (
-            name TEXT PRIMARY KEY,
-            schema_name TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            FOREIGN KEY (schema_name) REFERENCES schemas(name) ON DELETE CASCADE
-        )
-        """]
-        
-        for table_sql in tables:
-            await self.conn.execute(table_sql)
-        
-        await self.conn.commit()
+    async def close(self):
+        """Close database connection"""
+        if self.connection:
+            await self.connection.close()
     
-    async def create_table_from_schema(self, schema_name: str, schema_definition: dict):
-        """Create a new table based on a schema"""
-        if not self.conn:
-            raise RuntimeError("Database not initialized")
+    def _get_sql_type(self, json_type: str, constraints: Dict = None) -> str:
+        """Convert JSON schema type to SQL type"""
+        type_mapping = {
+            "string": "TEXT",
+            "number": "REAL",
+            "integer": "INTEGER",
+            "boolean": "INTEGER",  # 0 or 1
+            "array": "JSON",
+            "object": "JSON",
+            "null": "TEXT"
+        }
+        
+        sql_type = type_mapping.get(json_type, "TEXT")
+        
+        # Add constraints
+        if constraints:
+            if constraints.get("maxLength") and json_type == "string":
+                sql_type = f"VARCHAR({constraints['maxLength']})"
             
-        table_name = f"data_{schema_name}"
-        fields = schema_definition.get("fields", {})
+        return sql_type
+    
+    async def create_table_from_schema(self, table_name: str, schema: Dict[str, Any]):
+        """Create SQL table from JSON schema"""
         
-        # Start building the SQL
+        # Sanitize table name
+        safe_table_name = f"edix_data_{table_name.lower().replace('-', '_')}"
+        
+        # Parse schema properties
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+        
+        # Build CREATE TABLE statement
         columns = ["id INTEGER PRIMARY KEY AUTOINCREMENT"]
         
-        # Add fields as columns
-        for field_name, field_def in fields.items():
-            sql_type = self._get_sql_type(field_def["type"])
-            nullable = " NOT NULL" if field_def.get("required", True) else ""
-            columns.append(f"{field_name} {sql_type}{nullable}")
+        for prop_name, prop_schema in properties.items():
+            # Sanitize column name
+            safe_col_name = prop_name.lower().replace("-", "_")
+            
+            # Get SQL type
+            sql_type = self._get_sql_type(
+                prop_schema.get("type", "string"),
+                prop_schema
+            )
+            
+            # Check if required
+            if prop_name in required:
+                sql_type += " NOT NULL"
+            
+            # Add default value if specified
+            if "default" in prop_schema:
+                default_value = prop_schema["default"]
+                if isinstance(default_value, str):
+                    sql_type += f" DEFAULT '{default_value}'"
+                else:
+                    sql_type += f" DEFAULT {default_value}"
+            
+            columns.append(f"{safe_col_name} {sql_type}")
         
-        # Add timestamps
+        # Add metadata columns
         columns.extend([
-            "created_at TEXT NOT NULL",
-            "updated_at TEXT NOT NULL"
+            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            "_meta JSON"
         ])
         
-        # Create the table
-        create_sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(columns)})"
-        await self.conn.execute(create_sql)
-        
-        # Create indexes
-        for index_fields in schema_definition.get("indexes", []):
-            index_name = f"idx_{schema_name}_" + "_".join(index_fields)
-            index_sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name} ({', '.join(index_fields)})"
-            await self.conn.execute(index_sql)
-        
-        await self.conn.commit()
-    
-    def _get_sql_type(self, field_type: str) -> str:
-        """Map field type to SQL type"""
-        type_map = {
-            "string": "TEXT",
-            "integer": "INTEGER",
-            "float": "REAL",
-            "boolean": "INTEGER",  # SQLite doesn't have boolean
-            "datetime": "TEXT",
-            "date": "TEXT",
-            "time": "TEXT",
-            "json": "TEXT"
-        }
-        return type_map.get(field_type.lower(), "TEXT")
-    
-    async def insert_data(self, schema_name: str, data: Dict[str, Any]) -> int:
-        """Insert data into a schema table"""
-        if not self.conn:
-            raise RuntimeError("Database not initialized")
-            
-        table_name = f"data_{schema_name}"
-        now = datetime.utcnow().isoformat()
-        
-        # Prepare data
-        data["created_at"] = now
-        data["updated_at"] = now
-        
-        columns = ", ".join(data.keys())
-        placeholders = ", ".join(["?"] * len(data))
-        values = list(data.values())
-        
-        query = f"""
-        INSERT INTO {table_name} ({columns})
-        VALUES ({placeholders})
+        # Create table
+        create_sql = f"""
+            CREATE TABLE IF NOT EXISTS {safe_table_name} (
+                {', '.join(columns)}
+            )
         """
         
-        cursor = await self.conn.execute(query, values)
-        await self.conn.commit()
-        return cursor.lastrowid
+        await self.connection.execute(create_sql)
+        
+        # Create indexes for searchable fields
+        for prop_name, prop_schema in properties.items():
+            if prop_schema.get("index", False):
+                safe_col_name = prop_name.lower().replace("-", "_")
+                index_name = f"idx_{safe_table_name}_{safe_col_name}"
+                await self.connection.execute(
+                    f"CREATE INDEX IF NOT EXISTS {index_name} ON {safe_table_name} ({safe_col_name})"
+                )
+        
+        await self.connection.commit()
+        
+        # Save structure definition
+        await self.connection.execute("""
+            INSERT OR REPLACE INTO edix_structures (name, schema, meta)
+            VALUES (?, ?, ?)
+        """, (
+            table_name,
+            json.dumps(schema),
+            json.dumps({"table_name": safe_table_name})
+        ))
+        
+        await self.connection.commit()
     
-    async def update_data(self, schema_name: str, item_id: int, data: Dict[str, Any]) -> bool:
-        """Update data in a schema table"""
-        if not self.conn:
-            raise RuntimeError("Database not initialized")
-            
-        table_name = f"data_{schema_name}"
-        now = datetime.utcnow().isoformat()
+    async def list_structures(self) -> List[Dict[str, Any]]:
+        """List all registered structures"""
+        cursor = await self.connection.execute(
+            "SELECT * FROM edix_structures ORDER BY name"
+        )
+        rows = await cursor.fetchall()
         
-        # Prepare data
-        data["updated_at"] = now
+        structures = []
+        for row in rows:
+            structures.append({
+                "id": row["id"],
+                "name": row["name"],
+                "schema": json.loads(row["schema"]),
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+                "meta": json.loads(row["meta"]) if row["meta"] else {}
+            })
         
-        set_clause = ", ".join([f"{key} = ?" for key in data.keys()])
-        values = list(data.values())
-        values.append(item_id)  # For the WHERE clause
-        
-        query = f"""
-        UPDATE {table_name}
-        SET {set_clause}
-        WHERE id = ?
-        """
-        
-        cursor = await self.conn.execute(query, values)
-        await self.conn.commit()
-        return cursor.rowcount > 0
+        return structures
     
-    async def delete_data(self, schema_name: str, item_id: int) -> bool:
-        """Delete data from a schema table"""
-        if not self.conn:
-            raise RuntimeError("Database not initialized")
-            
-        table_name = f"data_{schema_name}"
-        
-        query = f"""
-        DELETE FROM {table_name}
-        WHERE id = ?
-        """
-        
-        cursor = await self.conn.execute(query, (item_id,))
-        await self.conn.commit()
-        return cursor.rowcount > 0
-    
-    async def get_data(self, schema_name: str, item_id: int) -> Optional[Dict[str, Any]]:
-        """Get a single item from a schema table"""
-        if not self.conn:
-            raise RuntimeError("Database not initialized")
-            
-        table_name = f"data_{schema_name}"
-        
-        query = f"""
-        SELECT * FROM {table_name}
-        WHERE id = ?
-        """
-        
-        cursor = await self.conn.execute(query, (item_id,))
+    async def get_structure_schema(self, structure_name: str) -> Dict[str, Any]:
+        """Get schema for a structure"""
+        cursor = await self.connection.execute(
+            "SELECT schema FROM edix_structures WHERE name = ?",
+            (structure_name,)
+        )
         row = await cursor.fetchone()
         
         if not row:
-            return None
-            
-        return dict(row)
+            raise ValueError(f"Structure '{structure_name}' not found")
+        
+        return json.loads(row["schema"])
     
-    async def list_data(
-        self, 
-        schema_name: str, 
-        filters: Optional[Dict[str, Any]] = None,
-        limit: int = 100,
-        offset: int = 0
-    ) -> List[Dict[str, Any]]:
-        """List data from a schema table with optional filtering"""
-        if not self.conn:
-            raise RuntimeError("Database not initialized")
-            
-        table_name = f"data_{schema_name}"
+    async def get_structure_data(self, structure_name: str) -> List[Dict[str, Any]]:
+        """Get all data for a structure"""
+        # Get table name
+        cursor = await self.connection.execute(
+            "SELECT meta FROM edix_structures WHERE name = ?",
+            (structure_name,)
+        )
+        row = await cursor.fetchone()
         
-        # Build WHERE clause
-        where_clause = ""
-        params = []
+        if not row:
+            raise ValueError(f"Structure '{structure_name}' not found")
         
-        if filters:
-            conditions = []
-            for key, value in filters.items():
-                conditions.append(f"{key} = ?")
-                params.append(value)
-            where_clause = "WHERE " + " AND ".join(conditions)
+        meta = json.loads(row["meta"])
+        table_name = meta.get("table_name")
         
-        query = f"""
-        SELECT * FROM {table_name}
-        {where_clause}
-        ORDER BY updated_at DESC
-        LIMIT ? OFFSET ?
-        """
-        
-        params.extend([limit, offset])
-        
-        cursor = await self.conn.execute(query, params)
+        # Get data
+        cursor = await self.connection.execute(f"SELECT * FROM {table_name}")
         rows = await cursor.fetchall()
         
-        return [dict(row) for row in rows]
+        data = []
+        for row in rows:
+            item = dict(row)
+            # Parse JSON fields
+            if "_meta" in item and item["_meta"]:
+                item["_meta"] = json.loads(item["_meta"])
+            data.append(item)
+        
+        return data
     
-    async def close(self):
-        """Close the database connection"""
-        if self.conn:
-            await self.conn.close()
-            self.conn = None
+    async def insert_data(
+        self,
+        structure_name: str,
+        data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Insert data into structure table"""
+        # Get table name and schema
+        cursor = await self.connection.execute(
+            "SELECT schema, meta FROM edix_structures WHERE name = ?",
+            (structure_name,)
+        )
+        row = await cursor.fetchone()
+        
+        if not row:
+            raise ValueError(f"Structure '{structure_name}' not found")
+        
+        schema = json.loads(row["schema"])
+        meta = json.loads(row["meta"])
+        table_name = meta.get("table_name")
+        
+        # Prepare data for insertion
+        columns = []
+        values = []
+        placeholders = []
+        
+        for key, value in data.items():
+            safe_col_name = key.lower().replace("-", "_")
+            columns.append(safe_col_name)
+            
+            # Convert complex types to JSON
+            if isinstance(value, (dict, list)):
+                values.append(json.dumps(value))
+            else:
+                values.append(value)
+            
+            placeholders.append("?")
+        
+        # Add metadata
+        columns.append("_meta")
+        values.append(json.dumps(data.get("_meta", {})))
+        placeholders.append("?")
+        
+        # Insert data
+        insert_sql = f"""
+            INSERT INTO {table_name} ({', '.join(columns)})
+            VALUES ({', '.join(placeholders)})
+        """
+        
+        cursor = await self.connection.execute(insert_sql, values)
+        await self.connection.commit()
+        
+        return {"id": cursor.lastrowid}
+    
+    async def update_data(
+        self,
+        structure_name: str,
+        item_id: int,
+        data: Dict[str, Any]
+    ):
+        """Update data in structure table"""
+        # Get table name
+        cursor = await self.connection.execute(
+            "SELECT meta FROM edix_structures WHERE name = ?",
+            (structure_name,)
+        )
+        row = await cursor.fetchone()
+        
+        if not row:
+            raise ValueError(f"Structure '{structure_name}' not found")
+        
+        meta = json.loads(row["meta"])
+        table_name = meta.get("table_name")
+        
+        # Prepare update statement
+        set_clauses = []
+        values = []
+        
+        for key, value in data.items():
+            if key != "id":  # Don't update ID
+                safe_col_name = key.lower().replace("-", "_")
+                set_clauses.append(f"{safe_col_name} = ?")
+                
+                # Convert complex types to JSON
+                if isinstance(value, (dict, list)):
+                    values.append(json.dumps(value))
+                else:
+                    values.append(value)
+        
+        # Add updated_at
+        set_clauses.append("updated_at = CURRENT_TIMESTAMP")
+        
+        # Add ID for WHERE clause
+        values.append(item_id)
+        
+        # Update data
+        update_sql = f"""
+            UPDATE {table_name}
+            SET {', '.join(set_clauses)}
+            WHERE id = ?
+        """
+        
+        await self.connection.execute(update_sql, values)
+        await self.connection.commit()
+    
+    async def delete_data(self, structure_name: str, item_id: int):
+        """Delete data from structure table"""
+        # Get table name
+        cursor = await self.connection.execute(
+            "SELECT meta FROM edix_structures WHERE name = ?",
+            (structure_name,)
+        )
+        row = await cursor.fetchone()
+        
+        if not row:
+            raise ValueError(f"Structure '{structure_name}' not found")
+        
+        meta = json.loads(row["meta"])
+        table_name = meta.get("table_name")
+        
+        # Delete data
+        await self.connection.execute(
+            f"DELETE FROM {table_name} WHERE id = ?",
+            (item_id,)
+        )
+        await self.connection.commit()
+    
+    async def export_structure(self, structure_name: str, format: str) -> Any:
+        """Export structure data in specified format"""
+        data = await self.get_structure_data(structure_name)
+        
+        if format == "json":
+            return data
+        elif format == "yaml":
+            return yaml.dump(data, allow_unicode=True)
+        elif format == "csv":
+            if not data:
+                return ""
+            
+            output = io.StringIO()
+            writer = csv.DictWriter(output, fieldnames=data[0].keys())
+            writer.writeheader()
+            writer.writerows(data)
+            return output.getvalue()
+        elif format == "xml":
+            # Simple XML export
+            from xml.etree.ElementTree import Element, SubElement, tostring
+            root = Element("data")
+            for item in data:
+                record = SubElement(root, "record")
+                for key, value in item.items():
+                    field = SubElement(record, key)
+                    field.text = str(value)
+            return tostring(root, encoding="unicode")
+        else:
+            raise ValueError(f"Unsupported format: {format}")
+    
+    async def export_all(self, format: str) -> Any:
+        """Export all structures data in specified format"""
+        structures = await self.list_structures()
+        all_data = {}
+        
+        for structure in structures:
+            structure_data = await self.get_structure_data(structure["name"])
+            all_data[structure["name"]] = structure_data
+        
+        if format == "json":
+            return all_data
+        elif format == "yaml":
+            return yaml.dump(all_data, allow_unicode=True)
+        else:
+            raise ValueError(f"Unsupported format for full export: {format}")
+    
+    async def import_data(self, format: str, data: Any) -> Dict[str, int]:
+        """Import data from specified format"""
+        if format == "json":
+            items = data if isinstance(data, list) else [data]
+        elif format == "yaml":
+            items = yaml.safe_load(data)
+            items = items if isinstance(items, list) else [items]
+        elif format == "csv":
+            reader = csv.DictReader(io.StringIO(data))
+            items = list(reader)
+        else:
+            raise ValueError(f"Unsupported format: {format}")
+        
+        count = 0
+        for item in items:
+            structure_name = item.pop("_structure", "default")
+            await self.insert_data(structure_name, item)
+            count += 1
+        
+        return {"count": count}
+    
+    async def save_structure(self, structure):
+        """Save structure definition"""
+        await self.connection.execute("""
+            INSERT OR REPLACE INTO edix_structures (name, schema, meta)
+            VALUES (?, ?, ?)
+        """, (
+            structure.name,
+            json.dumps(structure.schema),
+            json.dumps(structure.meta or {})
+        ))
+        await self.connection.commit()

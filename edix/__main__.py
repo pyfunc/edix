@@ -32,13 +32,13 @@ def main():
         run_server(host=args.host, port=args.port, reload=args.reload)
         
     elif args.command == "init":
-        from .db.base import engine, Base
-        from .models import user, schema, data_item, structure  # Import all models to register them
+        from .database import DatabaseManager
         
         async def init_db():
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
+            db = DatabaseManager(args.db)
+            await db.initialize()
             print(f"✅ Database initialized: {args.db}")
+            await db.close()
         
         asyncio.run(init_db())
         

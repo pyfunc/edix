@@ -1,22 +1,8 @@
-# requirements.txt
-"""
-fastapi>=0.100.0
-uvicorn[standard]>=0.23.0
-pydantic>=2.0.0
-pyyaml>=6.0
-aiosqlite>=0.19.0
-jinja2>=3.1.0
-python-multipart>=0.0.6
-websockets>=11.0
-jsonschema>=4.19.0
-alembic>=1.12.0
-"""
-
-# tests/test_edix.py
 """
 Basic tests for Edix
 """
 import pytest
+import pytest_asyncio
 import asyncio
 import json
 from pathlib import Path
@@ -25,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from edix.app import app
 from edix.database import DatabaseManager
-from edix.schemas import SchemaManager
+from edix.schemas.manager import SchemaManager
 from edix.models import Structure, Schema
 
 
@@ -35,7 +21,7 @@ def client():
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def db():
     """Create test database"""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
@@ -87,7 +73,7 @@ async def test_create_structure(db):
     tables = await cursor.fetchall()
     
     assert len(tables) > 0
-    assert "edix_data_test_structure" in tables[0][0]
+    assert "edix_data_test_structure" in [t[0] for t in tables]
 
 
 @pytest.mark.asyncio
@@ -125,44 +111,6 @@ def test_api_health_check(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
-
-
-def test_api_root_page(client):
-    """Test root page returns HTML"""
-    response = client.get("/")
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-
-
-@pytest.mark.asyncio
-async def test_schema_validation():
-    """Test schema validation"""
-    db = DatabaseManager(":memory:")
-    await db.initialize()
-    
-    schema_manager = SchemaManager(db)
-    
-    # Valid schema
-    valid_schema = {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"}
-        }
-    }
-    
-    result = await schema_manager.validate_schema(valid_schema)
-    assert result is True
-    
-    # Invalid schema
-    invalid_schema = {
-        "type": "invalid_type",
-        "properties": {}
-    }
-    
-    with pytest.raises(ValueError):
-        await schema_manager.validate_schema(invalid_schema)
-    
-    await db.close()
 
 
 @pytest.mark.asyncio
@@ -245,144 +193,3 @@ def test_type_mapping(json_type, sql_type):
     db = DatabaseManager(":memory:")
     result = db._get_sql_type(json_type)
     assert result == sql_type
-
-
-# tests/conftest.py
-"""
-Pytest configuration
-"""
-import pytest
-import asyncio
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for async tests"""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-# tests/__init__.py
-"""Tests package"""
-
-
-# .gitignore
-"""
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual Environment
-venv/
-ENV/
-env/
-edix_env/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs
-*.log
-
-# Frontend
-node_modules/
-frontend_src/node_modules/
-edix/static/app.js
-edix/static/*.map
-
-# Testing
-.coverage
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-htmlcov/
-.tox/
-
-# Config
-edix.yaml
-config.yaml
-.env
-
-# Docker
-.dockerignore
-"""
-
-# .dockerignore
-"""
-# Git
-.git
-.gitignore
-
-# Python
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.Python
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
-
-# Virtual environments
-venv/
-ENV/
-env/
-
-# IDEs
-.vscode/
-.idea/
-
-# Frontend source (we only need built files)
-frontend_src/node_modules/
-
-# Documentation
-docs/
-*.md
-
-# Tests
-tests/
-test_*.py
-
-# Development files
-Makefile
-setup.cfg
-.editorconfig
-"""

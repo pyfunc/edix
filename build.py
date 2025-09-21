@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Build script for Edix frontend assets
+Standalone build script for Edix frontend assets
+This is a convenience script that can be run independently of setup.py
 """
 import os
 import shutil
@@ -28,14 +29,14 @@ def run_command(command, cwd=None):
         print(f"Error: {e.stderr}")
         sys.exit(1)
 
-def install_dependencies():
-    """Install frontend dependencies"""
-    print("Installing frontend dependencies...")
-    run_command("npm install", cwd=str(FRONTEND_DIR))
-
-def build_frontend():
-    """Build the frontend assets"""
+def build_frontend_standalone():
+    """Build the frontend assets (standalone version)"""
     print("Building frontend assets...")
+    
+    # Set up paths
+    ROOT_DIR = Path(__file__).parent.absolute()
+    PACKAGE_DIR = ROOT_DIR / "edix"
+    FRONTEND_DIR = ROOT_DIR / "frontend_src"
     
     # Clean previous build
     static_dir = PACKAGE_DIR / "static"
@@ -50,15 +51,6 @@ def build_frontend():
     static_dir.mkdir(parents=True, exist_ok=True)
     templates_dir.mkdir(parents=True, exist_ok=True)
     
-    # Build the frontend
-    run_command("npm run build", cwd=str(FRONTEND_DIR))
-    
-    print("Frontend build completed successfully!")
-
-def main():
-    """Main function"""
-    print("Starting Edix build process...")
-    
     # Check if Node.js and npm are installed
     try:
         node_version = run_command("node --version")
@@ -70,16 +62,24 @@ def main():
         sys.exit(1)
     
     # Install dependencies and build
-    install_dependencies()
-    build_frontend()
+    print("Installing frontend dependencies...")
+    run_command("npm install", cwd=str(FRONTEND_DIR))
+    
+    print("Building frontend...")
+    run_command("npm run build", cwd=str(FRONTEND_DIR))
+    
+    print("Frontend build completed successfully!")
+
+def main():
+    """Main function"""
+    print("Starting Edix standalone build process...")
+    print("Note: This is a standalone build script. For package installation, use 'pip install -e .'")
+    print()
+    
+    build_frontend_standalone()
     
     print("\nBuild process completed successfully!")
-    print("You can now install the package using: pip install -e .")
+    print("The frontend assets have been built and are ready for use.")
 
 if __name__ == "__main__":
-    # Set up paths
-    ROOT_DIR = Path(__file__).parent.absolute()
-    PACKAGE_DIR = ROOT_DIR / "edix"
-    FRONTEND_DIR = ROOT_DIR / "frontend_src"
-    
     main()
