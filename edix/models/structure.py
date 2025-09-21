@@ -147,7 +147,7 @@ class Structure(StructureInDBBase):
     item_count: int = Field(0, description="Number of items in the structure")
 
 class StructureInDB(StructureInDBBase):
-    """"Structure model with raw data for database storage."""
+    """Structure model with raw data for database storage."""
     pass
 
 # SQLAlchemy model
